@@ -11,9 +11,6 @@ Proyecto integrador de la Unidad I de **Sistemas Distribuidos**. No es un produc
 - **Replicación.** Un mensaje que entra por el Nodo A aparece en el B y en el C.
 - **Tolerancia a fallos.** Apagas un nodo y el chat sigue vivo con los que quedan.
 - **Escalabilidad horizontal.** Agregar un nodo reparte la carga; el sistema no se reescribe para crecer.
-# Diagramas de NodeMesh
-
-Estos bloques se pueden pegar directamente en el `README.md` de GitHub.
 
 ## 1. Arquitectura general
 
@@ -78,20 +75,6 @@ flowchart TB
 
 **Comportamiento esperado:** si un nodo falla, ese proceso deja de atender peticiones, pero el chat continúa disponible mediante los nodos restantes. El proyecto no define todavía un mecanismo de resincronización automática para el nodo que vuelve a levantarse.
 
-
-## Arquitectura
-
-```
-        Cliente (terminal o Postman)
-                    |
-        +-----------+-----------+
-        |           |           |
-     Nodo A       Nodo B      Nodo C
-   (puerto 5001)(puerto 5002)(puerto 5003)
-        |-------- replican mensajes entre sí --------|
-```
-
-Todos los nodos corren el mismo programa en puertos distintos. Cuando uno recibe un mensaje nuevo, lo reenvía a los demás. El diagrama completo vive en `docs/arquitectura.drawio`.
 
 ## Stack
 
