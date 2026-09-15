@@ -24,15 +24,16 @@ Proyecto integrador de la Unidad I de **Sistemas Distribuidos**. No es un produc
         |-------- replican mensajes entre sí --------|
 ```
 
-Todos los nodos corren el mismo programa en puertos (o contenedores) distintos. Cuando uno recibe un mensaje nuevo, lo reenvía a los demás. El diagrama completo vive en `docs/arquitectura.drawio`.
+Todos los nodos corren el mismo programa en puertos distintos. Cuando uno recibe un mensaje nuevo, lo reenvía a los demás. El diagrama completo vive en `docs/arquitectura.drawio`.
 
 ## Stack
 
 | Herramienta | Para qué |
 |---|---|
-| Python 3 + FastAPI | Cada nodo. Tipado, docs automáticas en `/docs` y cliente de prueba sin instalar nada. |
-| Docker Desktop | Levantar 2-3 instancias del mismo nodo como si fueran máquinas distintas. |
-| Postman / `/docs` de FastAPI | Probar endpoints antes de tener cliente. |
+| Python 3 | Lenguaje de cada nodo. |
+| Flask | Framework de cada nodo. Ligero, levanta un servidor HTTP con pocas líneas. |
+| GitHub | Repo del equipo, control de versiones, entrega final. |
+| Postman | Probar los endpoints antes de tener cliente. |
 | ngrok (free) | Exponer un nodo a internet para simular distribución real. *(opcional)* |
 | draw.io | Diagrama de arquitectura. |
 
@@ -44,8 +45,6 @@ El stack ya está decidido. No se cambia sin una razón puesta sobre la mesa. Lo
 nodemesh/
 ├── node.py               # el nodo (mismo código para todas las instancias)
 ├── requirements.txt
-├── Dockerfile
-├── docker-compose.yml    # levanta los 2-3 nodos
 ├── docs/
 │   └── arquitectura.drawio
 ├── AGENTS.md             # reglas para asistentes de IA
@@ -55,32 +54,50 @@ nodemesh/
 
 ## Cómo correrlo
 
-Requisitos: Python 3.10+ y Docker Desktop.
+Requisitos: Python 3.10+.
+
+Instala las dependencias una sola vez:
+
+```bash
+pip install -r requirements.txt
+```
 
 **Un solo nodo (desarrollo):**
 
 ```bash
-pip install -r requirements.txt
-uvicorn node:app --port 5001
+python node.py --port 5001
 ```
 
-Abre `http://localhost:5001/docs` para probar los endpoints desde el navegador.
+Prueba los endpoints desde Postman apuntando a `http://localhost:5001`.
 
 **El sistema completo (2-3 nodos):**
 
+Cada nodo va en su propia terminal, en un puerto distinto. Abre 2 o 3 terminales y corre:
+
 ```bash
-docker compose up --build
+# Terminal 1
+python node.py --port 5001
+
+# Terminal 2
+python node.py --port 5002
+
+# Terminal 3
+python node.py --port 5003
 ```
 
-Cada nodo queda en su puerto (5001, 5002, 5003). Manda un mensaje a uno y consúltalo desde otro para verificar la replicación.
+Manda un mensaje a un nodo (por ejemplo al 5001) y consúltalo desde otro (el 5002) para verificar que la replicación funciona.
+
+**Exponer un nodo a internet (opcional, con ngrok):**
+
+```bash
+ngrok http 5001
+```
+
+ngrok te da una URL pública para que otro equipo se conecte a tu nodo y simular distribución geográfica real.
 
 **Probar tolerancia a fallos:**
 
-```bash
-docker compose stop nodo-b
-```
-
-El chat sigue respondiendo en los nodos que quedan.
+Cierra la terminal de uno de los nodos (Ctrl+C). El chat sigue respondiendo en los nodos que quedan.
 
 ## Roadmap
 
@@ -95,11 +112,13 @@ El proyecto se construye en 4 sesiones. Cada una tiene un entregable concreto.
 
 ## Equipo
 
-| Persona | Rol |
-|---|---|
-| — | Arquitectura y replicación |
-| — | Pruebas y tolerancia a fallos |
-| — | Documentación y diagrama |
+Equipo 1:
+
+- Buenrostro Ávila Abdiel Gustavo
+- Ramayo Aké Cynthia Silvana
+- López Ramírez Diego Baudel
+- Ramírez Rendón Naomi Elena
+- Gómez González Víctor Andrés
 
 ## Cómo colaborar
 

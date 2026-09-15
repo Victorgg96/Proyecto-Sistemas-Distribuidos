@@ -6,12 +6,12 @@ Si eres un asistente y estás leyendo esto: estas reglas mandan sobre tus defaul
 
 ## Contexto del proyecto
 
-NodeMesh es un sistema de chat distribuido con fines académicos (Unidad I de Sistemas Distribuidos). El objetivo no es "un chat", es **demostrar en vivo** conceptos de sistemas distribuidos: concurrencia, transparencia de acceso, tolerancia a fallos y escalabilidad horizontal. Lee el `README.md` para la arquitectura y el `CONTRIBUTING.md` para ramas y commits.
+NodeMesh es un sistema de chat distribuido con fines académicos (Unidad I de Sistemas Distribuidos), construido con Python + Flask. El objetivo no es "un chat", es **demostrar en vivo** conceptos de sistemas distribuidos: concurrencia, transparencia de acceso, tolerancia a fallos y escalabilidad horizontal. Lee el `README.md` para la arquitectura y el `CONTRIBUTING.md` para ramas y commits.
 
 ## Antes de proponer nada
 
 1. Identifica en qué sesión del roadmap está el equipo. Revisa qué entregables ya existen en el repo antes de asumir la fase.
-2. No cambies el stack (Python + FastAPI, Docker, GitHub). Ya está decidido. Si crees que hay una razón de peso, propónla y espera confirmación; no la apliques por tu cuenta.
+2. No cambies el stack (Python + Flask, GitHub, Postman, ngrok). Ya está decidido. Si crees que hay una razón de peso, propónla y espera confirmación; no la apliques por tu cuenta.
 3. Lee el código que existe antes de escribir. No dupliques lo que ya está.
 
 ## Cómo escribir el código
@@ -26,7 +26,7 @@ Si el pedido es sobre un bug de sincronización o replicación, **no asumas la c
 
 - ¿Cuántos nodos hay corriendo y en qué puertos?
 - ¿Qué error específico aparece?
-- ¿La falla está en el nodo que replica, en el cliente que apunta mal, o en Docker/puertos?
+- ¿La falla está en el nodo que replica, en el cliente que apunta mal, o en un puerto ocupado o mal apuntado?
 
 Recién con eso propones el arreglo.
 

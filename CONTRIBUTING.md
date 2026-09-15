@@ -49,7 +49,7 @@ Seguimos **Conventional Commits**. El mensaje va en español.
 | `docs` | Solo documentación (README, comentarios, diagrama) |
 | `refactor` | Reorganizar código sin cambiar comportamiento |
 | `test` | Agregar o ajustar pruebas |
-| `chore` | Configuración, dependencias, Docker, cosas de mantenimiento |
+| `chore` | Configuración, dependencias, cosas de mantenimiento |
 | `style` | Formato, indentación, nombres (sin lógica) |
 
 Ejemplos:
@@ -57,7 +57,7 @@ Ejemplos:
 ```
 feat(nodo): endpoint para recibir y guardar mensajes
 feat(replicacion): reenvío de mensajes a los demás nodos
-fix(docker): puertos duplicados en docker-compose
+fix(nodo): puerto ocupado al levantar segunda instancia
 docs(readme): instrucciones para levantar el sistema
 chore(deps): agregar httpx a requirements
 ```
@@ -84,6 +84,6 @@ Antes de tocar código, confirma en qué capa está el problema. No asumas la ca
 
 - ¿Es el nodo que no replica?
 - ¿Es el cliente que apunta al nodo equivocado?
-- ¿Es Docker o los puertos?
+- ¿Es un puerto ocupado o mal apuntado?
 
 Un mensaje de error concreto y saber cuántos nodos corren y en qué puertos ahorra la mitad del tiempo.
