@@ -165,7 +165,7 @@ El proyecto se construye en 4 sesiones. Cada una tiene un entregable concreto.
 Equipo 1:
 
 - Buenrostro Ávila Abiel Gustavo
-- Ramayo Aké Cinthia Sylvana
+- Ramayo Aké Cynthia Silvana
 - López Ramírez Diego Baudel
 - Ramírez Rendón Naomi Elena
 - Gómez González Víctor Andrés
