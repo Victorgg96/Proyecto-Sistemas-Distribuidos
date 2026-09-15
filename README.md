@@ -166,7 +166,7 @@ Equipo 1:
 
 - Buenrostro Ávila Abiel Gustavo
 - Ramayo Aké Cinthia Sylvana
-- López Ramírez Diego Bahudel
+- López Ramírez Diego Baudel
 - Ramírez Rendón Naomi Elena
 - Gómez González Víctor Andrés
 
