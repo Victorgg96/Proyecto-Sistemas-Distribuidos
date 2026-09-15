@@ -11,6 +11,73 @@ Proyecto integrador de la Unidad I de **Sistemas Distribuidos**. No es un produc
 - **Replicación.** Un mensaje que entra por el Nodo A aparece en el B y en el C.
 - **Tolerancia a fallos.** Apagas un nodo y el chat sigue vivo con los que quedan.
 - **Escalabilidad horizontal.** Agregar un nodo reparte la carga; el sistema no se reescribe para crecer.
+# Diagramas de NodeMesh
+
+Estos bloques se pueden pegar directamente en el `README.md` de GitHub.
+
+## 1. Arquitectura general
+
+```mermaid
+flowchart TB
+    C1[Cliente 1<br/>Terminal / Postman]
+    C2[Cliente 2<br/>Terminal / Postman]
+    C3[Cliente 3<br/>Terminal / Postman]
+
+    A[Nodo A<br/>Python + Flask<br/>Puerto 5001<br/>Memoria local]
+    B[Nodo B<br/>Python + Flask<br/>Puerto 5002<br/>Memoria local]
+    C[Nodo C<br/>Python + Flask<br/>Puerto 5003<br/>Memoria local]
+
+    C1 -->|HTTP| A
+    C2 -->|HTTP| B
+    C3 -->|HTTP| C
+
+    A <-->|Replicación HTTP| B
+    B <-->|Replicación HTTP| C
+    A <-->|Replicación HTTP| C
+```
+
+**Idea clave:** cada nodo es un proceso independiente. Los clientes pueden conectarse a cualquiera y los nodos replican los mensajes por red, sin memoria compartida.
+
+## 2. Flujo de mensajes
+
+```mermaid
+sequenceDiagram
+    actor C1 as Cliente 1
+    participant A as Nodo A :5001
+    participant B as Nodo B :5002
+    participant C as Nodo C :5003
+    actor C2 as Cliente 2
+
+    C1->>A: Enviar mensaje por HTTP
+    A->>A: Guardar en memoria local
+    A->>B: Replicar mensaje por HTTP
+    A->>C: Replicar mensaje por HTTP
+    B->>B: Guardar copia
+    C->>C: Guardar copia
+    C2->>B: Consultar mensajes
+    B-->>C2: Devuelve mensaje replicado
+```
+
+## 3. Tolerancia a fallos
+
+```mermaid
+flowchart TB
+    CL[Clientes]
+    A[Nodo A :5001<br/>ACTIVO]
+    B[Nodo B :5002<br/>CAÍDO]
+    C[Nodo C :5003<br/>ACTIVO]
+
+    CL -->|HTTP| A
+    CL -->|HTTP| C
+    CL -.->|No responde| B
+
+    A <-->|Replicación HTTP continúa| C
+    A -.->|Intento de réplica falla| B
+    C -.->|Intento de réplica falla| B
+```
+
+**Comportamiento esperado:** si un nodo falla, ese proceso deja de atender peticiones, pero el chat continúa disponible mediante los nodos restantes. El proyecto no define todavía un mecanismo de resincronización automática para el nodo que vuelve a levantarse.
+
 
 ## Arquitectura
 
