@@ -1,88 +1,45 @@
 """
-NodeMesh - nodo de chat.
+NodeMesh - nodo de chat distribuido.
 
-Un nodo es un proceso independiente que guarda mensajes en memoria y los
-expone por HTTP. El mismo archivo se puede levantar varias veces en puertos
-distintos para formar una red simple de nodos.
+Cada nodo es un proceso independiente que guarda mensajes en memoria y los
+expone por HTTP. Los nodos se conocen entre si (via --peers) y replican los
+mensajes: cuando a un nodo le llega un mensaje de un CLIENTE, lo reenvia a
+los demas nodos para que todos tengan la misma conversacion.
+
+Dos formas de que entre un mensaje:
+  - POST /mensajes  -> lo usa un CLIENTE. El nodo guarda y REPLICA a sus peers.
+  - POST /replicar  -> lo usa OTRO NODO. El nodo solo guarda, NO reenvia.
+Esa separacion es lo que evita un bucle infinito de reenvios.
 """
 
 import argparse
-import json
+import uuid
 from datetime import datetime, timezone
-from threading import Lock
-from urllib.error import URLError
-from urllib.request import Request, urlopen
-from uuid import uuid4
 
+import requests
 from flask import Flask, jsonify, request
 
 app = Flask(__name__)
 
-# Estado local del nodo. No hay memoria compartida entre procesos:
-# cada nodo guarda su propia copia y se sincroniza por HTTP.
+# Estado del nodo: los mensajes viven en memoria. Al apagar el nodo se pierden.
 mensajes = []
-ids_mensajes = set()
-lock_mensajes = Lock()
 
-# Configuracion del proceso actual. Se llena al arrancar desde la consola.
-nodo_actual = None
+# Lista de URLs de los otros nodos (ej. "http://10.20.11.71:5001"). Se llena
+# al arrancar con --peers. Si esta vacia, el nodo trabaja solo, sin replicar.
+peers = []
+
+# El puerto en el que corre este nodo. Se llena en main().
 puerto_actual = None
-vecinos = []
 
 
-def crear_payload_mensaje(usuario, texto):
-    # Cada mensaje necesita un id para no duplicarlo al replicar entre nodos.
-    return {
-        "id": str(uuid4()),
-        "usuario": usuario,
-        "texto": texto,
-        "origen": nodo_actual,
-        "timestamp": datetime.now(timezone.utc).isoformat(),
-    }
-
-
-def guardar_mensaje(mensaje):
-    # El lock evita inconsistencias si Flask atiende dos peticiones a la vez.
-    with lock_mensajes:
-        if mensaje["id"] in ids_mensajes:
-            return False
-
-        mensajes.append(mensaje)
-        ids_mensajes.add(mensaje["id"])
-        return True
-
-
-def replicar_mensaje(mensaje):
-    # La replicacion es mejor esfuerzo: si un vecino esta caido, este nodo sigue.
-    fallos = []
-    cuerpo = json.dumps(mensaje).encode("utf-8")
-
-    for vecino in vecinos:
-        url = f"{vecino}/replicar"
-        request_http = Request(
-            url,
-            data=cuerpo,
-            headers={"Content-Type": "application/json"},
-            method="POST",
-        )
-
-        try:
-            with urlopen(request_http, timeout=2):
-                pass
-        except URLError:
-            fallos.append(vecino)
-
-    return fallos
-
-
-def normalizar_url(url):
-    # Evita errores comunes como dejar una diagonal final en el vecino.
-    return url.rstrip("/")
+def ya_existe(id_mensaje):
+    # Evita guardar dos veces el mismo mensaje (por si llega repetido).
+    return any(m["id"] == id_mensaje for m in mensajes)
 
 
 @app.route("/mensajes", methods=["POST"])
 def crear_mensaje():
-    # Endpoint publico: un cliente manda usuario/texto a cualquier nodo.
+    # Entrada de un CLIENTE: guardamos y replicamos a los demas nodos.
     datos = request.get_json(silent=True) or {}
     usuario = datos.get("usuario")
     texto = datos.get("texto")
@@ -90,56 +47,74 @@ def crear_mensaje():
     if not usuario or not texto:
         return jsonify({"error": "Faltan campos: se requieren 'usuario' y 'texto'"}), 400
 
-    mensaje = crear_payload_mensaje(usuario, texto)
-    guardar_mensaje(mensaje)
-    fallos = replicar_mensaje(mensaje)
+    # El nodo de origen arma el mensaje completo: id y timestamp se fijan aqui
+    # una sola vez, para que todas las copias en los demas nodos sean iguales.
+    mensaje = {
+        "id": uuid.uuid4().hex,
+        "usuario": usuario,
+        "texto": texto,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    }
+    mensajes.append(mensaje)
 
-    return jsonify({
-        "mensaje": mensaje,
-        "replicado_a": [vecino for vecino in vecinos if vecino not in fallos],
-        "replicas_fallidas": fallos,
-    }), 201
+    replicar_a_peers(mensaje)
+
+    return jsonify(mensaje), 201
 
 
 @app.route("/replicar", methods=["POST"])
 def recibir_replica():
-    # Endpoint interno: lo usan otros nodos para enviar una copia del mensaje.
+    # Entrada de OTRO NODO: solo guardamos, NO reenviamos (asi no hay bucle).
     mensaje = request.get_json(silent=True) or {}
-    campos_requeridos = {"id", "usuario", "texto", "origen", "timestamp"}
 
-    if not campos_requeridos.issubset(mensaje):
-        return jsonify({"error": "Replica invalida: faltan campos obligatorios"}), 400
+    # Un mensaje replicado debe venir armado desde el nodo de origen.
+    if not mensaje.get("id") or not mensaje.get("usuario") or not mensaje.get("texto"):
+        return jsonify({"error": "Mensaje replicado invalido"}), 400
 
-    guardado = guardar_mensaje(mensaje)
-    estado = "guardado" if guardado else "duplicado"
+    if ya_existe(mensaje["id"]):
+        return jsonify({"estado": "ya existia, ignorado"}), 200
 
-    return jsonify({"estado": estado, "id": mensaje["id"]}), 200
+    mensajes.append(mensaje)
+    return jsonify({"estado": "replicado"}), 201
 
 
 @app.route("/mensajes", methods=["GET"])
 def listar_mensajes():
-    # Se devuelve una copia para no exponer la lista mientras podria cambiar.
-    with lock_mensajes:
-        return jsonify(list(mensajes)), 200
+    return jsonify(mensajes), 200
 
 
 @app.route("/salud", methods=["GET"])
 def salud():
-    # Permite diagnosticar rapido que nodo responde y cuantos mensajes conoce.
-    with lock_mensajes:
-        total_mensajes = len(mensajes)
-
     return jsonify({
         "estado": "ok",
-        "nodo": nodo_actual,
         "puerto": puerto_actual,
-        "vecinos": vecinos,
-        "mensajes_guardados": total_mensajes,
+        "mensajes_guardados": len(mensajes),
+        "peers": peers,
     }), 200
 
 
+def replicar_a_peers(mensaje):
+    # Mandamos el mensaje a cada peer por su endpoint /replicar.
+    # Cada llamada va protegida: si un peer esta caido, NO tumbamos este nodo;
+    # solo ese peer se pierde el mensaje. Esto es la tolerancia a fallos.
+    for peer in peers:
+        try:
+            # El header ngrok-skip-browser-warning evita que ngrok gratis meta
+            # su pagina de advertencia cuando los nodos se hablan por una URL
+            # publica de ngrok. En red local no estorba.
+            requests.post(
+                f"{peer}/replicar",
+                json=mensaje,
+                headers={"ngrok-skip-browser-warning": "true"},
+                timeout=3,
+            )
+        except requests.exceptions.RequestException as e:
+            # No frenamos: avisamos en consola y seguimos con el siguiente.
+            print(f"[replicacion] no se pudo replicar a {peer}: {e}")
+
+
 def main():
-    global nodo_actual, puerto_actual, vecinos
+    global puerto_actual, peers
 
     parser = argparse.ArgumentParser(description="Nodo de chat NodeMesh")
     parser.add_argument(
@@ -149,23 +124,21 @@ def main():
         help="Puerto en el que corre el nodo (default 5001)",
     )
     parser.add_argument(
-        "--nodo",
-        default=None,
-        help="Nombre legible del nodo (default nodo-<puerto>)",
-    )
-    parser.add_argument(
-        "--vecinos",
+        "--peers",
         nargs="*",
         default=[],
-        help="URLs de otros nodos, por ejemplo: http://localhost:5002",
+        help="URLs de los otros nodos, separadas por espacio "
+             "(ej. --peers http://10.20.11.71:5001 http://10.20.11.72:5001)",
     )
     args = parser.parse_args()
-
     puerto_actual = args.puerto
-    nodo_actual = args.nodo or f"nodo-{args.puerto}"
-    vecinos = [normalizar_url(vecino) for vecino in args.vecinos]
+    # Quitamos una posible diagonal al final para no armar URLs con // dobles.
+    peers = [p.rstrip("/") for p in args.peers]
 
-    # host 0.0.0.0 para que sea alcanzable desde otras maquinas/ngrok.
+    print(f"Nodo escuchando en el puerto {puerto_actual}")
+    print(f"Peers configurados: {peers if peers else 'ninguno (modo solo)'}")
+
+    # host 0.0.0.0 para que sea alcanzable desde otras maquinas / ngrok.
     app.run(host="0.0.0.0", port=args.puerto)
 
 

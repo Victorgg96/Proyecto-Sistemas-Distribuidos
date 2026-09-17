@@ -8,6 +8,29 @@ Si eres un asistente y estás leyendo esto: estas reglas mandan sobre tus defaul
 
 NodeMesh es un sistema de chat distribuido con fines académicos (Unidad I de Sistemas Distribuidos), construido con Python + Flask. El objetivo no es "un chat", es **demostrar en vivo** conceptos de sistemas distribuidos: concurrencia, transparencia de acceso, tolerancia a fallos y escalabilidad horizontal. Lee el `README.md` para la arquitectura y el `CONTRIBUTING.md` para ramas y commits.
 
+## Arquitectura y endpoints (importante, no romper esto)
+
+Cada nodo corre el mismo `node/app.py` y guarda los mensajes en memoria. Los nodos se conocen por el argumento `--peers` (URLs de los otros nodos). El contrato de la API:
+
+- `POST /mensajes` — lo usa un **cliente** (Postman). El nodo guarda el mensaje **y lo replica** a cada peer. Aqui es donde se generan el `id` (uuid) y el `timestamp`, una sola vez, en el nodo de origen.
+- `POST /replicar` — lo usa **otro nodo**, no un cliente. Solo guarda, **no reenvia**. Esta separacion es la que evita el bucle infinito de reenvios; no la elimines ni hagas que `/replicar` reenvie.
+- `GET /mensajes` — devuelve la lista completa. Es lo que lee el cliente.
+- `GET /salud` — estado, puerto, cuantos mensajes y los peers.
+
+Reglas que no se tocan sin discutirlo:
+
+- La deduplicacion por `id` en `/replicar` se queda: evita guardar el mismo mensaje dos veces.
+- La replicacion es **best-effort y tolerante a fallos**: cada llamada a un peer va en try/except con timeout. Si un peer esta caido, el nodo igual guarda y responde; el peer caido solo se pierde ese mensaje. No cambies esto por algo que tumbe el nodo cuando un peer no responde.
+- El nodo debe seguir funcionando **sin** `--peers` (modo de un solo nodo, como en la Sesion 2).
+
+Como levantar el sistema distribuido: cada nodo en su maquina/terminal, con los otros como peers. Ejemplo con IPs locales:
+
+```
+python node/app.py --puerto 5001 --peers http://10.20.11.71:5001 http://10.20.11.72:5001
+```
+
+Para conectar nodos en redes distintas se usa ngrok (`ngrok http 5001`) y se ponen las URLs publicas en `--peers`. El codigo es el mismo; solo cambian las URLs.
+
 ## Antes de proponer nada
 
 1. Identifica en qué sesión del roadmap está el equipo. Revisa qué entregables ya existen en el repo antes de asumir la fase.
